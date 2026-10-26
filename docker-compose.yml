@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # HookPulse Core Delivery Engine
+  # ============================================================================
+  hookpulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hookpulse-server
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - REDIS_URL=redis://redis:6379/0
+      - MASTER_API_KEY=${MASTER_API_KEY:-hp_live_master_key_secret_2026}
+      - DEFAULT_WEBHOOK_SECRET=${DEFAULT_WEBHOOK_SECRET:-whsec_hookpulse_default_hmac_secret_key}
+    ports:
+      - "4000:4000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hookpulse-network
+
+  # ============================================================================
+  # Queue & Cache: Redis
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: hookpulse-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hookpulse-network
+
+networks:
+  hookpulse-network:
+    driver: bridge
+
+volumes:
+  redis_data:
